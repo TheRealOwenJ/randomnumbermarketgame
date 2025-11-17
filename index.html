@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>random number market game</title>
+<style>
+body{font-family:sans-serif;background:#f0f8ff;margin:0;padding:20px;display:flex;flex-direction:column;align-items:center}
+h1{margin:0 0 8px;text-transform:none}
+#hud{display:flex;gap:20px;align-items:center}
+#cashdisplay,#inventorycount{font-weight:700}
+#conveyor{position:relative;width:80%;height:150px;border:2px solid #333;background:#fff;border-radius:10px;overflow:hidden;margin-top:20px}
+.numbercard{min-width:100px;margin-right:15px;font-weight:700;font-size:1.4em;position:absolute;text-align:center;padding:6px;border-radius:6px}
+.infobox{display:none;position:absolute;top:100%;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.8);color:#fff;padding:4px 6px;border-radius:4px;font-size:.8em;white-space:nowrap}
+.numbercard:hover{transform:scale(1.25);cursor:pointer}
+.numbercard:hover .infobox{display:block}
+#inventory{margin-top:16px;width:400px;max-height:260px;overflow:auto;border:1px solid #333;background:#fff;padding:6px;border-radius:8px}
+.item{display:flex;justify-content:space-between;padding:6px;border-bottom:1px solid #eee;font-weight:700}
+.item button{background:#ffcc00;border:none;border-radius:5px;padding:4px 8px;cursor:pointer}
+#resetbtn{margin-top:8px;padding:6px 10px;background:#ff5555;color:#fff;border:none;border-radius:6px;cursor:pointer}
+#loginbtn{position:fixed;left:10px;bottom:10px;padding:8px 12px;background:#0077ff;color:#fff;border:none;border-radius:6px;cursor:pointer}
+#loginpanel,#adminpanel,#achpanel{position:fixed;left:10px;bottom:60px;background:#fff;border:2px solid #333;padding:10px;border-radius:8px;display:none;z-index:999}
+#adminpanel{width:340px}
+#achpanel{right:10px;left:auto;bottom:10px;width:260px;display:block}
+input,select,button{font:inherit}
+.badge{display:inline-block;padding:4px 8px;border-radius:6px;margin:4px;background:#eee}
+.locked{opacity:.45}
+.small{font-size:0.9em;color:#555}
+</style>
+</head>
+<body>
+<h1>random number market game</h1>
+<div id="hud">
+  <div id="cashdisplay">cash: <span id="cash">0</span></div>
+  <div id="inventorycount">inventory: <span id="invcount">0</span>/15</div>
+  <button id="resetbtn">reset game</button>
+</div>
+
+<div id="conveyor"></div>
+
+<h2>inventory</h2>
+<div id="inventory"></div>
+
+<button id="loginbtn">login (admin)</button>
+
+<div id="loginpanel">
+  <strong>admin login</strong><br>
+  <input id="username" placeholder="username" autocomplete="off"/><br>
+  <input id="password" type="password" placeholder="password" autocomplete="off"/><br>
+  <button id="loginsubmit">login</button>
+</div>
+
+<div id="adminpanel">
+  <h3>admin panel</h3>
+  <div><strong>admin:</strong> <span id="adminname">-</span></div>
+  <hr>
+  <label>spawn number (rarity):</label><br>
+  <select id="spawnrarity">
+    <option value="common">common</option>
+    <option value="rare">rare</option>
+    <option value="epic">epic</option>
+    <option value="legendary">legendary</option>
+  </select>
+  <input id="spawncount" type="number" placeholder="amount" style="width:70px" value="1"/>
+  <button id="spawnbtn">spawn</button>
+  <hr>
+  <input id="admincashinput" placeholder="give yourself cash (number)" />
+  <button id="admingivecash">give cash</button>
+  <hr>
+  <input id="removeindex" type="number" placeholder="inventory index to remove"/>
+  <button id="removeitembtn">remove item</button>
+  <button id="clearallbtn">clear all numbers</button>
+  <hr>
+  <button id="closeadmin">close admin</button>
+</div>
+
+<div id="achpanel">
+  <h4>achievements</h4>
+  <div id="achlist"></div>
+</div>
+
+<script>
+/* ---------- config ---------- */
+const rarities = [
+  {name:'common', chance:0.7, color:'#000', max:1000},
+  {name:'rare', chance:0.2, color:'#0077ff', max:100000},
+  {name:'epic', chance:0.08, color:'#a200ff', max:10000000},
+  {name:'legendary', chance:0.02, color:'#ff9900', max:1000000000}
+];
+const maxinventory = 15;
+
+/* ---------- state ---------- */
+let inventory = JSON.parse(localStorage.getItem('inventory')) || [];
+let cash = localStorage.getItem('cash') ? parseInt(localStorage.getItem('cash')) : 100;
+let lastlogin = localStorage.getItem('lastlogin') ? parseInt(localStorage.getItem('lastlogin')) : Date.now();
+let totalearned = parseInt(localStorage.getItem('totalearned') || '0');
+let boughtcount = parseInt(localStorage.getItem('boughtcount') || '0');
+let achstate = JSON.parse(localStorage.getItem('achstate') || '{}');
+
+/* ---------- achievements ---------- */
+const achievements = [
+  {id:'firstbuy', name:'first buy', desc:'buy your first number', cond: s => s.boughtcount >= 1},
+  {id:'collector5', name:'collector 5', desc:'have 5 items in inventory', cond: s => s.inventorycount >= 5},
+  {id:'collector10', name:'collector 10', desc:'have 10 items in inventory', cond: s => s.inventorycount >= 10},
+  {id:'rich1000', name:'cash 1000', desc:'earn 1000 total cash', cond: s => s.totalearned >= 1000},
+  {id:'rich1m', name:'millionaire', desc:'earn 1,000,000 total cash', cond: s => s.totalearned >= 1000000},
+  {id:'idle50', name:'idle master', desc:'have 50 idle/sec total', cond: s => s.idlepersec >= 50}
+];
+
+/* ---------- ui refs ---------- */
+const cashel = document.getElementById('cash');
+const invcountel = document.getElementById('invcount');
+const inventoryel = document.getElementById('inventory');
+const conveyor = document.getElementById('conveyor');
+
+/* ---------- utils ---------- */
+function saveall(){
+  localStorage.setItem('inventory', JSON.stringify(inventory));
+  localStorage.setItem('cash', String(cash));
+  localStorage.setItem('lastlogin', String(Date.now()));
+  localStorage.setItem('totalearned', String(totalearned));
+  localStorage.setItem('boughtcount', String(boughtcount));
+  localStorage.setItem('achstate', JSON.stringify(achstate));
+}
+function randomrarity(){ let r=Math.random(), cum=0; for(let x of rarities){cum+=x.chance;if(r<=cum)return x;} return rarities[0]; }
+function calcprice(n){ return Math.max(Math.floor(n*2),10) }
+function calcidle(n){ return Math.max(Math.floor(n*0.1),1) }
+function calcsell(n,p){ return n<4?1:Math.floor(p/4) }
+function recalcIdle(){ return inventory.reduce((s,i)=>s+(i.idle||0),0) }
+function saveearned(amount){ totalearned+=amount; }
+
+/* ---------- offline ---------- */
+let secondsOffline = Math.floor((Date.now()-lastlogin)/1000);
+let offlineIdleSum = inventory.reduce((s,i)=>s+(i.idle||0),0);
+let offlineGain = secondsOffline*offlineIdleSum;
+if(offlineGain>0){ cash+=offlineGain; totalearned+=offlineGain; }
+localStorage.setItem('lastlogin',Date.now());
+
+/* ---------- render ---------- */
+function renderCash(){ cashel.textContent=cash; }
+function renderInventory(){
+  inventoryel.innerHTML='';
+  inventory.forEach((it,idx)=>{
+    let sell=calcsell(it.number,it.boughtprice);
+    let d=document.createElement('div'); d.className='item';
+    d.innerHTML=`<span style="color:${(rarities.find(r=>r.name===it.rarity)||{color:'#000'}).color}">${it.number} (${it.rarity}) - idle:${it.idle}</span>
+      <button onclick="sellitem(${idx})">sell (${sell})</button>`;
+    inventoryel.appendChild(d);
+  });
+  invcountel.textContent=inventory.length;
+  checkachievements();
+}
+window.sellitem=function(i){
+  let it=inventory[i];
+  cash+=calcsell(it.number,it.boughtprice);
+  saveearned(calcsell(it.number,it.boughtprice));
+  inventory.splice(i,1);
+  renderInventory(); renderCash(); saveall();
+}
+function buynumber(number,rarity,price,idle){
+  if(inventory.length>=maxinventory){ alert('inventory full!'); return false; }
+  if(cash<price){ alert('not enough cash!'); return false; }
+  cash-=price; saveearned(price); boughtcount++;
+  inventory.push({number,rarity:rarity.name,boughtprice:price,idle});
+  renderInventory(); renderCash(); saveall();
+  return true;
+}
+function checkachievements(){
+  let state={boughtcount,inventorycount:inventory.length,totalearned,idlepersec:recalcIdle()};
+  achievements.forEach(a=>{ if(!achstate[a.id]&&a.cond(state)){ achstate[a.id]=true; } });
+  renderach();
+}
+function renderach(){
+  const list=document.getElementById('achlist'); list.innerHTML='';
+  achievements.forEach(a=>{
+    let b=document.createElement('div'); b.className='badge '+(achstate[a.id]?'':'locked'); b.textContent=a.name; b.title=a.desc; list.appendChild(b);
+  });
+}
+
+/* ---------- conveyor ---------- */
+function createnumbercard(opts){
+  let rarity=opts?.rarity||randomrarity();
+  let n=opts?.number||Math.floor(Math.random()*rarity.max)+1;
+  let p=opts?.price||calcprice(n);
+  let id=opts?.idle||calcidle(n);
+
+  const c=document.createElement('div'); c.className='numbercard'; c.style.color=rarity.color; c.textContent=n;
+  const info=document.createElement('div'); info.className='infobox'; info.innerHTML=`price: ${p}<br>idle: ${id}`; c.appendChild(info);
+  conveyor.appendChild(c);
+  let pos=conveyor.offsetWidth || 400; c.style.left=pos+'px'; c.style.top='20px';
+  c.addEventListener('click',()=>{
+    if(buynumber(n,rarity,p,id)) c.remove();
+  });
+  function move(){ pos-=2; c.style.left=pos+'px'; if(pos+120<0){c.remove();return;} requestAnimationFrame(move); }
+  requestAnimationFrame(move);
+}
+setInterval(()=>createnumbercard(),1200);
+
+/* ---------- worker ---------- */
+const workerCode=`let tickInterval=1000;let inventory=[];function recalcIdle(){return inventory.reduce((s,i)=>s+(i.idle||0),0);}self.onmessage=e=>{const m=e.data;if(m.type==='init')inventory=m.inventory||[];if(m.type==='update')inventory=m.inventory||[];};setInterval(()=>{self.postMessage({type:'tick',idle:recalcIdle()});},tickInterval);`;
+const workerBlob=new Blob([workerCode],{type:'application/javascript'});
+const worker=new Worker(URL.createObjectURL(workerBlob));
+worker.postMessage({type:'init',inventory});
+worker.onmessage=e=>{ const m=e.data; if(m.type==='tick'){ const gain=m.idle; if(gain>0){ cash+=gain; totalearned+=gain; renderCash(); saveall(); } } };
+function updateWorkerInventory(){ worker.postMessage({type:'update',inventory}); }
+
+/* ---------- buttons ---------- */
+document.getElementById('resetbtn').addEventListener('click',()=>{
+  if(!confirm('reset game?')) return;
+  inventory=[]; cash=100; totalearned=0; boughtcount=0; achstate={}; saveall(); renderInventory(); renderCash(); renderach(); updateWorkerInventory();
+});
+document.getElementById('loginbtn').addEventListener('click',()=>{
+  const p=document.getElementById('loginpanel'); p.style.display=p.style.display==='block'?'none':'block';
+});
+document.getElementById('loginsubmit').addEventListener('click',()=>{
+  const u=document.getElementById('username').value.trim().toLowerCase();
+  const p=document.getElementById('password').value.trim();
+  if(u==='owenj'&&p==='ojrt1234'){ openAdmin('owenj'); document.getElementById('loginpanel').style.display='none'; } else { alert('invalid admin credentials'); }
+});
+function openAdmin(name){ document.getElementById('adminpanel').style.display='block'; document.getElementById('adminname').textContent=name; }
+document.getElementById('spawnbtn').addEventListener('click',()=>{
+  const rname=document.getElementById('spawnrarity').value; 
+  const count=Math.max(1,parseInt(document.getElementById('spawncount').value)||1);
+  const rarity=rarities.find(x=>x.name===rname)||rarities[0]; 
+  for(let i=0;i<count;i++){
+    let n = Math.floor(Math.random()*rarity.max)+1;
+    let p = calcprice(n);
+    let id = calcidle(n);
+    createnumbercard({rarity, number:n, price:p, idle:id});
+  }
+});
+document.getElementById('admingivecash').addEventListener('click',()=>{
+  const v=parseInt(document.getElementById('admincashinput').value); if(isNaN(v)||v===0)return; cash+=v; totalearned+=Math.max(0,v); renderCash(); saveall();
+});
+document.getElementById('removeitembtn').addEventListener('click',()=>{
+  const idx=parseInt(document.getElementById('removeindex').value);
+  if(!isNaN(idx) && idx>=0 && idx<inventory.length){ inventory.splice(idx,1); renderInventory(); saveall(); updateWorkerInventory(); }
+});
+document.getElementById('clearallbtn').addEventListener('click',()=>{ inventory=[]; renderInventory(); saveall(); updateWorkerInventory(); });
+document.getElementById('closeadmin').addEventListener('click',()=>{ document.getElementById('adminpanel').style.display='none'; });
+
+/* sync worker */
+const origPush=Array.prototype.push; Array.prototype.push=function(){ const r=origPush.apply(this,arguments); updateWorkerInventory(); return r; };
+const origSplice=Array.prototype.splice; Array.prototype.splice=function(){ const r=origSplice.apply(this,arguments); updateWorkerInventory(); return r; };
+
+/* ---------- init ---------- */
+function init(){ renderCash(); renderInventory(); renderach(); updateWorkerInventory(); }
+init();
+
+window._game={inventory,get cash(){return cash},set cash(v){cash=v;renderCash();saveall();},buynumber,createnumbercard};
+</script>
+</body>
+</html>
