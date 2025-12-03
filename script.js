@@ -6,9 +6,10 @@ const rarities = [
   {name:'legendary', chance:0.02, color:'#ff9900', max:1000000000},
   {name: 'mythic', chance:0.005, color:'#ff0000', max:10000000000},
   {name: 'divine', chance:0.001, color:'#00ff00', max:100000000000},
-  {name: 'celestial', chance:0.0001, color:'#ffff00', max:1000000000000}
+  {name: 'celestial', chance: 0.0001, color: '#ffff00', max: 1000000000000},
+  {name: 'admin', chance:0, color:'#206602', max:Infinity}
 ];
-const maxinventory = 15;
+const maxinventory = 20;
 
 /* ---------- state ---------- */
 let inventory = JSON.parse(localStorage.getItem('inventory')) || [];
@@ -44,6 +45,7 @@ function saveall(){
   localStorage.setItem('achstate', JSON.stringify(achstate));
 }
 function randomrarity(){ let r=Math.random(), cum=0; for(let x of rarities){cum+=x.chance;if(r<=cum)return x;} return rarities[0]; }
+function getRarityByNumber(n){ for(let i=rarities.length-1;i>=0;i--){ if(n<=rarities[i].max)return rarities[i]; } return rarities[rarities.length-1]; }
 function calcprice(n){ return Math.max(Math.floor(n*2),10) }
 function calcidle(n){ return Math.max(Math.floor(n*0.1),1) }
 function calcsell(n,p){ return n<4?1:Math.floor(p/4) }
@@ -72,15 +74,19 @@ function renderInventory(){
   checkachievements();
 }
 window.sellitem=function(i){
+  if(i<0||i>=inventory.length)return;
   let it=inventory[i];
-  cash+=calcsell(it.number,it.boughtprice);
-  saveearned(calcsell(it.number,it.boughtprice));
+  let sellAmount=calcsell(it.number,it.boughtprice);
+  cash+=sellAmount;
+  saveearned(sellAmount);
   inventory.splice(i,1);
   renderInventory(); renderCash(); saveall();
 }
 function buynumber(number,rarity,price,idle){
+  if(!rarity||!rarity.name)return false;
   if(inventory.length>=maxinventory){ alert('inventory full!'); return false; }
   if(cash<price){ alert('not enough cash!'); return false; }
+  if(price<0||idle<0)return false;
   cash-=price; saveearned(price); boughtcount++;
   inventory.push({number,rarity:rarity.name,boughtprice:price,idle});
   renderInventory(); renderCash(); saveall();
@@ -88,7 +94,7 @@ function buynumber(number,rarity,price,idle){
 }
 function checkachievements(){
   let state={boughtcount,inventorycount:inventory.length,totalearned,idlepersec:recalcIdle()};
-  achievements.forEach(a=>{ if(!achstate[a.id]&&a.cond(state)){ achstate[a.id]=true; } });
+  achievements.forEach(a=>{ if(!achstate[a.id]&&a.cond(state)){ achstate[a.id]=true; saveall(); } });
   renderach();
 }
 function renderach(){
@@ -101,7 +107,8 @@ function renderach(){
 /* ---------- conveyor ---------- */
 function createnumbercard(opts){
   let rarity=opts?.rarity||randomrarity();
-  let n=opts?.number||Math.floor(Math.random()*rarity.max)+1;
+  if(!rarity)rarity=rarities[0];
+  let n=opts?.number||Math.floor(Math.random()*Math.min(rarity.max,1000000000))+1;
   let p=opts?.price||calcprice(n);
   let id=opts?.idle||calcidle(n);
 
@@ -134,28 +141,22 @@ document.getElementById('loginbtn').addEventListener('click',()=>{
   const p=document.getElementById('loginpanel'); p.style.display=p.style.display==='block'?'none':'block';
 });
 document.getElementById('loginsubmit').addEventListener('click',()=>{
-  const u=document.getElementById('username').value.trim().toLowerCase();
+  const u=document.getElementById('username').value.trim();
   const p=document.getElementById('password').value.trim();
-  if(u==='owenj'&&p==='ojrt1234'){ openAdmin('owenj'); document.getElementById('loginpanel').style.display='none'; } else { alert('invalid admin credentials'); }
+  if(validateAdmin(u,p)){ openAdmin(u); document.getElementById('loginpanel').style.display='none'; } else { alert('invalid admin credentials'); }
 });
 function openAdmin(name){ document.getElementById('adminpanel').style.display='block'; document.getElementById('adminname').textContent=name; }
 document.getElementById('spawnbtn').addEventListener('click',()=>{
-  const rname=document.getElementById('spawnrarity').value; 
-  const count=Math.max(1,parseInt(document.getElementById('spawncount').value)||1);
-  const rarity=rarities.find(x=>x.name===rname)||rarities[0]; 
-  for(let i=0;i<count;i++){
-    let n = Math.floor(Math.random()*rarity.max)+1;
-    let p = calcprice(n);
-    let id = calcidle(n);
-    createnumbercard({rarity, number:n, price:p, idle:id});
-  }
+  const n=parseInt(document.getElementById('spawnnumber').value);
+  if(isNaN(n)||n<=0){ alert('enter a valid number'); return; }
+  const rarity=rarities.find(r=>r.name==='admin');
+  const p=calcprice(n);
+  const id=calcidle(n);
+  createnumbercard({rarity, number:n, price:p, idle:id});
+  document.getElementById('spawnnumber').value='';
 });
 document.getElementById('admingivecash').addEventListener('click',()=>{
   const v=parseInt(document.getElementById('admincashinput').value); if(isNaN(v)||v===0)return; cash+=v; totalearned+=Math.max(0,v); renderCash(); saveall();
-});
-document.getElementById('removeitembtn').addEventListener('click',()=>{
-  const idx=parseInt(document.getElementById('removeindex').value);
-  if(!isNaN(idx) && idx>=0 && idx<inventory.length){ inventory.splice(idx,1); renderInventory(); saveall(); updateWorkerInventory(); }
 });
 document.getElementById('clearallbtn').addEventListener('click',()=>{ inventory=[]; renderInventory(); saveall(); updateWorkerInventory(); });
 document.getElementById('closeadmin').addEventListener('click',()=>{ document.getElementById('adminpanel').style.display='none'; });

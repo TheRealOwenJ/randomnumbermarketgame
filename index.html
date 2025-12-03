@@ -9,7 +9,7 @@
 <h1>random number market game</h1>
 <div id="hud">
   <div id="cashdisplay">cash: <span id="cash">0</span></div>
-  <div id="inventorycount">inventory: <span id="invcount">0</span>/15</div>
+  <div id="inventorycount">inventory: <span id="invcount">0</span>/20</div>
   <button id="resetbtn">reset game</button>
 </div>
 
@@ -31,21 +31,13 @@
   <h3>admin panel</h3>
   <div><strong>admin:</strong> <span id="adminname">-</span></div>
   <hr>
-  <label>spawn number (rarity):</label><br>
-  <select id="spawnrarity">
-    <option value="common">common</option>
-    <option value="rare">rare</option>
-    <option value="epic">epic</option>
-    <option value="legendary">legendary</option>
-  </select>
-  <input id="spawncount" type="number" placeholder="amount" style="width:70px" value="1"/>
+  <label>spawn number:</label><br>
+  <input id="spawnnumber" type="number" placeholder="enter number" />
   <button id="spawnbtn">spawn</button>
   <hr>
   <input id="admincashinput" placeholder="give yourself cash (number)" />
   <button id="admingivecash">give cash</button>
   <hr>
-  <input id="removeindex" type="number" placeholder="inventory index to remove"/>
-  <button id="removeitembtn">remove item</button>
   <button id="clearallbtn">clear all numbers</button>
   <hr>
   <button id="closeadmin">close admin</button>
@@ -56,6 +48,7 @@
   <div id="achlist"></div>
 </div>
 
+<script src="config.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
