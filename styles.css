@@ -1,0 +1,168 @@
+body {
+  font-family: sans-serif;
+  background: #f0f8ff;
+  margin: 0;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+h1 {
+  margin: 0 0 8px;
+  text-transform: none;
+}
+
+#hud {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+#cashdisplay,
+#inventorycount {
+  font-weight: 700;
+}
+
+#conveyor {
+  position: relative;
+  width: 80%;
+  height: 150px;
+  border: 2px solid #333;
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 20px;
+}
+
+.numbercard {
+  min-width: 100px;
+  margin-right: 15px;
+  font-weight: 700;
+  font-size: 1.4em;
+  position: absolute;
+  text-align: center;
+  padding: 6px;
+  border-radius: 6px;
+}
+
+.infobox {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  white-space: nowrap;
+}
+
+.numbercard:hover {
+  transform: scale(1.25);
+  cursor: pointer;
+}
+
+.numbercard:hover .infobox {
+  display: block;
+}
+
+#inventory {
+  margin-top: 16px;
+  width: 400px;
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid #333;
+  background: #fff;
+  padding: 6px;
+  border-radius: 8px;
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px;
+  border-bottom: 1px solid #eee;
+  font-weight: 700;
+}
+
+.item button {
+  background: #ffcc00;
+  border: none;
+  border-radius: 5px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+#resetbtn {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #ff5555;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#loginbtn {
+  position: fixed;
+  left: 10px;
+  bottom: 10px;
+  padding: 8px 12px;
+  background: #0077ff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#loginpanel,
+#adminpanel,
+#achpanel {
+  position: fixed;
+  left: 10px;
+  bottom: 60px;
+  background: #fff;
+  border: 2px solid #333;
+  padding: 10px;
+  border-radius: 8px;
+  display: none;
+  z-index: 999;
+}
+
+#adminpanel {
+  width: 340px;
+}
+
+#achpanel {
+  right: 10px;
+  left: auto;
+  bottom: 10px;
+  width: 260px;
+  display: block;
+}
+
+input,
+select,
+button {
+  font: inherit;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin: 4px;
+  background: #eee;
+}
+
+.locked {
+  opacity: 0.45;
+}
+
+.small {
+  font-size: 0.9em;
+  color: #555;
+}
