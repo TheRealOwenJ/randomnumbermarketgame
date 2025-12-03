@@ -21,12 +21,16 @@ let achstate = JSON.parse(localStorage.getItem('achstate') || '{}');
 
 /* ---------- achievements ---------- */
 const achievements = [
-  {id:'firstbuy', name:'first buy', desc:'buy your first number', cond: s => s.boughtcount >= 1},
   {id:'collector5', name:'collector 5', desc:'have 5 items in inventory', cond: s => s.inventorycount >= 5},
   {id:'collector10', name:'collector 10', desc:'have 10 items in inventory', cond: s => s.inventorycount >= 10},
+  {id:'collector20', name:'collector 20', desc:'have 20 items in inventory', cond: s => s.inventorycount >= 20},
   {id:'rich1000', name:'cash 1000', desc:'earn 1000 total cash', cond: s => s.totalearned >= 1000},
   {id:'rich1m', name:'millionaire', desc:'earn 1,000,000 total cash', cond: s => s.totalearned >= 1000000},
-  {id:'idle50', name:'idle master', desc:'have 50 idle/sec total', cond: s => s.idlepersec >= 50}
+  {id:'rich1b', name:'billionaire', desc:'earn 1,000,000,000 total cash', cond: s => s.totalearned >= 1000000000},
+  {id:'buyer50', name:'buyer 50', desc:'buy 50 numbers', cond: s => s.boughtcount >= 50},
+  {id:'buyer200', name:'buyer 200', desc:'buy 200 numbers', cond: s => s.boughtcount >= 200},
+  {id:'idle100', name:'idle 100', desc:'have 100 idle per second', cond: s => s.idlepersec >= 100},
+  {id:'idle1000', name:'idle 1000', desc:'have 1000 idle per second', cond: s => s.idlepersec >= 1000}
 ];
 
 /* ---------- ui refs ---------- */
@@ -105,6 +109,9 @@ function renderach(){
 }
 
 /* ---------- conveyor ---------- */
+let lastCardSpawnTime = 0;
+const spawnCooldown = 1200;
+
 function createnumbercard(opts){
   let rarity=opts?.rarity||randomrarity();
   if(!rarity)rarity=rarities[0];
@@ -122,7 +129,19 @@ function createnumbercard(opts){
   function move(){ pos-=2; c.style.left=pos+'px'; if(pos+120<0){c.remove();return;} requestAnimationFrame(move); }
   requestAnimationFrame(move);
 }
-setInterval(()=>createnumbercard(),1200);
+
+function scheduleCardSpawn(){
+  const now = Date.now();
+  const timeSinceLastSpawn = now - lastCardSpawnTime;
+  
+  if(timeSinceLastSpawn >= spawnCooldown){
+    createnumbercard();
+    lastCardSpawnTime = now;
+  }
+  
+  requestAnimationFrame(scheduleCardSpawn);
+}
+scheduleCardSpawn();
 
 /* ---------- worker ---------- */
 const workerCode=`let tickInterval=1000;let inventory=[];function recalcIdle(){return inventory.reduce((s,i)=>s+(i.idle||0),0);}self.onmessage=e=>{const m=e.data;if(m.type==='init')inventory=m.inventory||[];if(m.type==='update')inventory=m.inventory||[];};setInterval(()=>{self.postMessage({type:'tick',idle:recalcIdle()});},tickInterval);`;
