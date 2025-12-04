@@ -109,8 +109,34 @@ function renderach(){
 }
 
 /* ---------- conveyor ---------- */
+
+// auto-spawn systeem
 let lastCardSpawnTime = 0;
 const spawnCooldown = 1200;
+let spawnAnimationId = null;
+
+function scheduleCardSpawn(){
+  const now = Date.now();
+  const timeSinceLastSpawn = now - lastCardSpawnTime;
+  
+  if(timeSinceLastSpawn >= spawnCooldown){
+    createnumbercard();
+    lastCardSpawnTime = now;
+  }
+  
+  spawnAnimationId = requestAnimationFrame(scheduleCardSpawn);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden){
+    cancelAnimationFrame(spawnAnimationId);
+  } else {
+    lastCardSpawnTime = Date.now();
+    scheduleCardSpawn();
+  }
+});
+
+scheduleCardSpawn();
 
 function createnumbercard(opts){
   let rarity=opts?.rarity||randomrarity();
@@ -129,19 +155,6 @@ function createnumbercard(opts){
   function move(){ pos-=2; c.style.left=pos+'px'; if(pos+120<0){c.remove();return;} requestAnimationFrame(move); }
   requestAnimationFrame(move);
 }
-
-function scheduleCardSpawn(){
-  const now = Date.now();
-  const timeSinceLastSpawn = now - lastCardSpawnTime;
-  
-  if(timeSinceLastSpawn >= spawnCooldown){
-    createnumbercard();
-    lastCardSpawnTime = now;
-  }
-  
-  requestAnimationFrame(scheduleCardSpawn);
-}
-scheduleCardSpawn();
 
 /* ---------- worker ---------- */
 const workerCode=`let tickInterval=1000;let inventory=[];function recalcIdle(){return inventory.reduce((s,i)=>s+(i.idle||0),0);}self.onmessage=e=>{const m=e.data;if(m.type==='init')inventory=m.inventory||[];if(m.type==='update')inventory=m.inventory||[];};setInterval(()=>{self.postMessage({type:'tick',idle:recalcIdle()});},tickInterval);`;
